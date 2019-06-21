@@ -145,9 +145,9 @@ begin
 	
 	with switch select
 	debug_clk <=
-		1000 when "11100000",
-		100 when "11000000",
-		10 when "10000000",
+		1000 when "11100000" | "11110000",
+		100 when "11000000" | "11010000",
+		10 when "10000000" | "10010000",
 		1 when others;
 		
 	with enable_signal select 
@@ -161,7 +161,7 @@ begin
 
 	proc_info: process(clk_1khz)
 	begin
-		if switch(1) = '1' then
+		if switch(3) = '1' then
 			led(0) <= lcd_data_signal(0);
 			led(1) <= lcd_data_signal(1);
 			led(2) <= lcd_data_signal(2);
@@ -201,31 +201,32 @@ begin
 			if lcd_ready = '1' then
 				if write_done = '1' and write_to_lcd = '1' then
 					write_to_lcd <= '0';
-				elsif tmp_121_counter < 310 or (tmp_121_counter >= 319 and tmp_121_counter < 350) then
+				elsif write_to_lcd = '0' and write_done = '1' then
+					null;
+				elsif tmp_121_counter < 310 or (tmp_121_counter >= 320 and tmp_121_counter < 350) then
 					tmp_121_counter <= tmp_121_counter + 1;
 				elsif tmp_121_counter = 310 then
 					cs1 <= '0';
 					tmp_121_counter <= tmp_121_counter + 1;
-				elsif tmp_121_counter > 310 and tmp_121_counter < 319 and write_to_lcd = '0' and write_done = '0' then
+				elsif tmp_121_counter > 310 and tmp_121_counter < 320 and write_to_lcd = '0' and write_done = '0' then
 					case data_index is
-						when 0 => tmp_121_data(0) <= do;
-						when 1 => tmp_121_data(1) <= do;
-						when 2 => tmp_121_data(2) <= do;
-						when 3 => tmp_121_data(3) <= do;
-						when 4 => tmp_121_data(4) <= do;
-						when 5 => tmp_121_data(5) <= do;
-						when 6 => tmp_121_data(6) <= do;
-						when 7 => tmp_121_data(7) <= do;
+						when 0 => null;
+						when 1 => tmp_121_data(0) <= do;
+						when 2 => tmp_121_data(1) <= do;
+						when 3 => tmp_121_data(2) <= do;
+						when 4 => tmp_121_data(3) <= do;
+						when 5 => tmp_121_data(4) <= do;
+						when 6 => tmp_121_data(5) <= do;
+						when 7 => tmp_121_data(6) <= do;
+						when 8 => tmp_121_data(7) <= do;
 						when others => null;
 					end case;
-					if data_index < 7 then
+					if data_index < 8 then
 						data_index <= data_index + 1;
 					else
 						data_index <= 0;
 					end if;
 					tmp_121_counter <= tmp_121_counter + 1;
-				elsif tmp_121_counter > 310 and tmp_121_counter < 319 then
-					null;
 				else
 					tmp_121_counter <= 0;
 				end if;
@@ -347,21 +348,37 @@ begin
 						lcd_ready <= '1';
 					when others => null;
 				end case;
+			elsif write_to_lcd = '1' and write_done = '1' then
+				null;
 			elsif write_to_lcd = '0' and write_done = '1' then
 				write_done <= '0';
 			elsif write_to_lcd = '1' then
 				case lcd_counter is
 					when 0 => 
-						rs_next_cycle <= '1';
+						rs_next_cycle <= '0';
 						lcd_data_signal <= clear_conf_lcd;
 						lcd_counter <= lcd_counter + 1;
-					when 1 =>
+					when 1 to 3 =>
+						lcd_counter <= lcd_counter + 1;
+						lcd_data_signal <= x"00";
+					when 4 =>
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 5 =>
 						rs_next_cycle <= '1';
 						lcd_data_signal <= digit1;
 						lcd_counter <= lcd_counter + 1;
-					when 2 =>
-						rs_next_cycle <= '0';
+					when 6 =>
+						rs_next_cycle <= '1';
 						lcd_data_signal <= digit2;
+						lcd_counter <= lcd_counter + 1;
+					when 7 =>
+						rs_next_cycle <= '1';
+						lcd_data_signal <= C;
+						lcd_counter <= lcd_counter + 1;
+					when 8 =>
+						rs_next_cycle <= '0';
+						lcd_data_signal <= miasbola;
 						lcd_counter <= 0;
 						write_done <= '1';
 					when others => null;
