@@ -33,7 +33,7 @@ entity exp12 is
            clk_tmp121 : out  STD_LOGIC;
            led : out  STD_LOGIC_VECTOR(0 TO 7);
 			  clk_in : in STD_LOGIC;
-			  display : out STD_LOGIC_VECTOR(0 TO 5);
+			  display : out STD_LOGIC_VECTOR(0 TO 5) := "000000";
 			  transistor : out STD_LOGIC_VECTOR(0 TO 3);
 			  rs : out STD_LOGIC;
 			  enable_lcd : out STD_LOGIC;
@@ -78,14 +78,13 @@ architecture Behavioral of exp12 is
 	signal clk_1khz_counter : INTEGER := 0;
 	signal clk_1khz : STD_LOGIC := '0';
 	
-	signal tmp_121_data : STD_LOGIC_VECTOR(0 TO 7) := "00000000";
-	signal tmp_121_counter : INTEGER := 0;
-	
-	signal data_index : INTEGER := 0;
+	signal tmp121_data : STD_LOGIC_VECTOR(0 TO 7) := "00000000";
+	signal tmp121_count : INTEGER := 0;
 
 	signal display_counter : INTEGER := 0;
 
-	signal tmp_121_integer : INTEGER := 0;
+	signal tmp121_integer : INTEGER := 0;
+	signal tmp121_int_buf : INTEGER := 0;
 	
 	signal write_to_lcd : STD_LOGIC := '0';
 	signal write_done : STD_LOGIC := '0';
@@ -106,9 +105,15 @@ architecture Behavioral of exp12 is
 	signal rs_clk_signal : STD_LOGIC := '0';
 	signal enable_signal : STD_LOGIC := '0';
 	signal clk_enable : STD_LOGIC := '0';
+	signal cs1_sig : STD_LOGIC := '1';
+	signal cs1_next_cycle : STD_LOGIC := '1';
+	signal convert_sig : STD_LOGIC := '0';
+	signal intbuf_saved : STD_LOGIC := '0';
+	signal convert_done : STD_LOGIC := '0';
 
 begin
 	
+	cs1 <= cs1_sig;
 	rs <= rs_clk_signal;
 	lcd_data <= lcd_data_signal;
 	transistor <= "0000";
@@ -118,15 +123,15 @@ begin
 	with digit1_int select
 	digit1 <=
 		ascii_0 when 0,
-		ascii_1 when 1,
-		ascii_2 when 2,
-		ascii_3 when 3,
-		ascii_4 when 4,
-		ascii_5 when 5,
-		ascii_6 when 6,
-		ascii_7 when 7,
-		ascii_8 when 8,
-		ascii_9 when 9,
+		ascii_1 when 1|10|100,
+		ascii_2 when 2|20|200,
+		ascii_3 when 3|30|300,
+		ascii_4 when 4|40|400,
+		ascii_5 when 5|50|500,
+		ascii_6 when 6|60|600,
+		ascii_7 when 7|70|700,
+		ascii_8 when 8|80|800,
+		ascii_9 when 9|90|900,
 		x"58" when others;
 		
 	with digit2_int select
@@ -145,9 +150,7 @@ begin
 	
 	with switch select
 	debug_clk <=
-		1000 when "11100000" | "11110000",
-		100 when "11000000" | "11010000",
-		10 when "10000000" | "10010000",
+		1000 when "10000000" | "10010000",
 		1 when others;
 		
 	with enable_signal select 
@@ -157,7 +160,7 @@ begin
 		
 	enable_lcd <= clk_enable;
 	
-	tmp_121_integer <= to_integer(unsigned(tmp_121_data));
+	tmp121_integer <= to_integer(unsigned(tmp121_data));
 
 	proc_info: process(clk_1khz)
 	begin
@@ -171,7 +174,33 @@ begin
 			led(6) <= lcd_data_signal(6);
 			led(7) <= rs_clk_signal;
 		else
-			led <= tmp_121_data;
+			led <= tmp121_data;
+		end if;
+	end process;
+	
+	proc_convert: process(clk_in)
+	begin
+		if clk_in'event and clk_in = '1' then
+			if write_to_lcd = '1' and write_done = '1' then
+				digit1_int <= 0;
+				digit2_int <= 0;
+				write_to_lcd <= '0';
+				convert_done <= '1';
+			elsif convert_done = '1' and convert_sig = '0' then
+				convert_done <= '0';
+			elsif tmp121_count > 328 and convert_sig = '1' and write_to_lcd = '0' then
+				if intbuf_saved = '0' then
+					tmp121_int_buf <= tmp121_integer;
+					intbuf_saved <= '1';
+				elsif tmp121_int_buf >= 10 then
+					tmp121_int_buf <= tmp121_int_buf - 10;
+					digit1_int <= digit1_int + 1;
+				else
+					digit2_int <= tmp121_int_buf;
+					write_to_lcd <= '1';
+					intbuf_saved <= '0';
+				end if;
+			end if;
 		end if;
 	end process;
 	
@@ -192,44 +221,51 @@ begin
 	  end if;
 	end process;
 	
+	proc_cs1: process(clk_1khz)
+	begin
+		if clk_1khz'event and clk_1khz = '0' then
+			cs1_sig <= cs1_next_cycle;
+		end if;
+	end process;
+	
 	process_tmp121: process(clk_1khz)
 	begin
 		if clk_1khz'event and clk_1khz = '1' then
-			if tmp_121_counter = 0 then
-				cs1 <= '1';
-			end if;
+			
 			if lcd_ready = '1' then
-				if write_done = '1' and write_to_lcd = '1' then
-					write_to_lcd <= '0';
-				elsif write_to_lcd = '0' and write_done = '1' then
-					null;
-				elsif tmp_121_counter < 310 or (tmp_121_counter >= 320 and tmp_121_counter < 350) then
-					tmp_121_counter <= tmp_121_counter + 1;
-				elsif tmp_121_counter = 310 then
-					cs1 <= '0';
-					tmp_121_counter <= tmp_121_counter + 1;
-				elsif tmp_121_counter > 310 and tmp_121_counter < 320 and write_to_lcd = '0' and write_done = '0' then
-					case data_index is
-						when 0 => null;
-						when 1 => tmp_121_data(0) <= do;
-						when 2 => tmp_121_data(1) <= do;
-						when 3 => tmp_121_data(2) <= do;
-						when 4 => tmp_121_data(3) <= do;
-						when 5 => tmp_121_data(4) <= do;
-						when 6 => tmp_121_data(5) <= do;
-						when 7 => tmp_121_data(6) <= do;
-						when 8 => tmp_121_data(7) <= do;
-						when others => null;
+				if convert_sig = '1' and convert_done = '1' then
+					convert_sig <= '0';
+				else 
+					-- realiza as operacoes
+					case tmp121_count is
+						when 0 to 318 => null; -- conta ate 320ms com cs em '1'
+						when 319 => cs1_next_cycle <= '0'; -- ultimo ciclo da contagem alterando cs_next_cycle
+						when 320 => null; -- atribui dados ate o 328 (enfia o 1 bit no cu)
+						when 321 => tmp121_data(0) <= do;
+						when 322 =>	tmp121_data(1) <= do;
+						when 323 =>	tmp121_data(2) <= do;
+						when 324 =>	tmp121_data(3) <= do;
+						when 325 =>	tmp121_data(4) <= do;
+						when 326 =>	tmp121_data(5) <= do;
+						when 327 =>	tmp121_data(6) <= do;
+						when 328 =>	
+							tmp121_data(7) <= do;
+							convert_sig <= '1';
+						when 329 to 348 => null;-- espera ate fim dos 350ms
+						when 349 => cs1_next_cycle <= '1'; -- ativa o cs_next_cycle
+						when others => 
+							null;
+						
 					end case;
-					if data_index < 8 then
-						data_index <= data_index + 1;
-					else
-						data_index <= 0;
-					end if;
-					tmp_121_counter <= tmp_121_counter + 1;
-				else
-					tmp_121_counter <= 0;
+					-- ajusta o counter
+					case tmp121_count is
+						when 0 to 348 =>
+							tmp121_count <= tmp121_count + 1;
+						when others =>
+							tmp121_count <= 0;
+					end case;
 				end if;
+				
 			end if;
 	  end if;
 	end process;
@@ -373,12 +409,8 @@ begin
 						lcd_data_signal <= digit2;
 						lcd_counter <= lcd_counter + 1;
 					when 7 =>
-						rs_next_cycle <= '1';
-						lcd_data_signal <= C;
-						lcd_counter <= lcd_counter + 1;
-					when 8 =>
 						rs_next_cycle <= '0';
-						lcd_data_signal <= miasbola;
+						lcd_data_signal <= C;
 						lcd_counter <= 0;
 						write_done <= '1';
 					when others => null;
