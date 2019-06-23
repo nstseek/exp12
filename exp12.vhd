@@ -33,7 +33,7 @@ entity exp12 is
            clk_tmp121 : out  STD_LOGIC;
            led : out  STD_LOGIC_VECTOR(0 TO 7);
 			  clk_in : in STD_LOGIC;
-			  display : out STD_LOGIC_VECTOR(0 TO 5) := "000000";
+			  display : out STD_LOGIC_VECTOR(0 TO 6) := "0000000";
 			  transistor : out STD_LOGIC_VECTOR(0 TO 3);
 			  rs : out STD_LOGIC;
 			  enable_lcd : out STD_LOGIC;
@@ -51,6 +51,11 @@ architecture Behavioral of exp12 is
 	constant desloc_conf_lcd : STD_LOGIC_VECTOR(0 TO 7) := x"06";
 	constant clear_conf_lcd : STD_LOGIC_VECTOR(0 TO 7) := x"01";
 	
+	constant disp_s : STD_LOGIC_VECTOR(0 TO 6) := "0100100";
+	constant disp_u : STD_LOGIC_VECTOR(0 TO 6) := "1000001";
+	constant disp_g : STD_LOGIC_VECTOR(0 TO 6) := "0000100";
+	constant disp_a : STD_LOGIC_VECTOR(0 TO 6) := "0001000";
+	-- mia cassssseta
 	constant R : STD_LOGIC_VECTOR(0 TO 7) := x"52";
 	constant a : STD_LOGIC_VECTOR(0 TO 7) := x"61";
 	constant f : STD_LOGIC_VECTOR(0 TO 7) := x"66";
@@ -116,7 +121,6 @@ begin
 	cs1 <= cs1_sig;
 	rs <= rs_clk_signal;
 	lcd_data <= lcd_data_signal;
-	transistor <= "0000";
 	cs_ad <= '1';
 	clk_tmp121 <= clk_1khz;
 	
@@ -273,27 +277,56 @@ begin
 	proc_display: process(clk_1khz)
 	begin
 		if clk_1khz'event and clk_1khz = '1' then
-			if display_counter < 166 then
-				display <= "011111";
-			elsif display_counter >= 166 and display_counter < 332 then
-				display <= "101111";
-			elsif display_counter >= 332 and display_counter < 498 then
-				display <= "110111";
-			elsif display_counter >= 498 and display_counter < 664 then
-				display <= "111011";
-			elsif display_counter >= 664 and display_counter < 830 then
-				display <= "111101";
-			elsif display_counter >= 830 and display_counter < 996 then
-				display <= "111110";
+			if switch(7) = '1' then
+							
+				case display_counter is
+				 when 0 =>
+					display <= disp_s;
+					transistor <= "0111";
+				 when 1 =>
+					display <= disp_u;
+					transistor <= "1011";
+				 when 2 =>
+					display <= disp_g;
+					transistor <= "1101";
+				 when 3 =>
+					display <= disp_a;
+					transistor <= "1110";
+				 when others =>
+					null;
+				end case;
+				
+				case display_counter is
+					when 0 to 2 => 
+						display_counter <= display_counter + 1;
+					when others =>
+						display_counter <= 0;
+				end case;
 			else
-				null;
+				transistor <= "0000";
+				if display_counter < 166 then
+					display <= "0111111";
+				elsif display_counter >= 166 and display_counter < 332 then
+					display <= "1011111";
+				elsif display_counter >= 332 and display_counter < 498 then
+					display <= "1101111";
+				elsif display_counter >= 498 and display_counter < 664 then
+					display <= "1110111";
+				elsif display_counter >= 664 and display_counter < 830 then
+					display <= "1111011";
+				elsif display_counter >= 830 and display_counter < 996 then
+					display <= "1111101";
+				else
+					null;
+				end if;
+				
+				if display_counter <= 996 then
+					display_counter <= display_counter + 1;
+				else
+					display_counter <= 0;
+				end if;
 			end if;
 			
-			if display_counter <= 996 then
-				display_counter <= display_counter + 1;
-			else
-				display_counter <= 0;
-			end if;
 		end if;
 	end process;
 	
@@ -401,14 +434,66 @@ begin
 						lcd_counter <= lcd_counter + 1;
 						rs_next_cycle <= '1';
 					when 5 =>
+						lcd_data_signal <= T;
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 6 =>
+						lcd_data_signal <= e;
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 7 =>
+						lcd_data_signal <= m;
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 8 =>
+						lcd_data_signal <= p;
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 9 =>
+						lcd_data_signal <= e;
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 10 =>
+						lcd_data_signal <= min_r;
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 11 =>
+						lcd_data_signal <= a;
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 12 =>
+						lcd_data_signal <= min_t;
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 13 =>
+						lcd_data_signal <= u;
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 14 =>
+						lcd_data_signal <= min_r;
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 15 =>
+						lcd_data_signal <= a;
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 16 =>
+						lcd_data_signal <= x"3A";
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 17 =>
+						lcd_data_signal <= x"20";
+						lcd_counter <= lcd_counter + 1;
+						rs_next_cycle <= '1';
+					when 18 =>
 						rs_next_cycle <= '1';
 						lcd_data_signal <= digit1;
 						lcd_counter <= lcd_counter + 1;
-					when 6 =>
+					when 19 =>
 						rs_next_cycle <= '1';
 						lcd_data_signal <= digit2;
 						lcd_counter <= lcd_counter + 1;
-					when 7 =>
+					when 20 =>
 						rs_next_cycle <= '0';
 						lcd_data_signal <= C;
 						lcd_counter <= 0;

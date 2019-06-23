@@ -21,6 +21,7 @@ NET display(2) LOC = P23;
 NET display(3) LOC = P21;
 NET display(4) LOC = P20;
 NET display(5) LOC = P17;
+NET display(6) LOC = P83;
 NET rs LOC = P94;
 NET enable_lcd LOC = P88;
 NET lcd_data(0) LOC = P77;
